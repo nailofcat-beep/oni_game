@@ -17,16 +17,16 @@
     margin: 0 auto;
   }
 
-  /* ▼ 島（自動スケール） */
+  /* ▼ 島（12%に拡大） */
   .island {
     position: absolute;
     background: #fff;
     border: 2px solid #333;
     border-radius: 50%;
-    width: 10vw;
-    height: 10vw;
-    max-width: 60px;
-    max-height: 60px;
+    width: 12vw;
+    height: 12vw;
+    max-width: 72px;
+    max-height: 72px;
   }
 
   /* ▼ キャラ（自動スケール） */
@@ -97,7 +97,6 @@
   子どものスタート位置を選んでください
 </div>
 
-<!-- ▼ ボタン（大きくした） -->
 <button id="startBtn" class="game-btn" disabled>ゲーム開始</button>
 <button id="resetBtn" class="game-btn">リセット</button>
 
@@ -116,12 +115,12 @@
   let islandPos = [];
   let islandSize = 0;
 
-  /* ▼ 画面サイズに応じて島の位置を計算 */
+  /* ▼ 島の位置を画面サイズから計算（12%に拡大） */
   function computeIslandPos() {
     const rect = game.getBoundingClientRect();
     const w = rect.width;
 
-    islandSize = w * 0.10; // 島の直径（10%）
+    islandSize = w * 0.12; // ★ ここを 0.10 → 0.12 に変更
 
     islandPos = islandRatio.map(r => ({
       x: r.x * w - islandSize / 2,
@@ -148,7 +147,7 @@
   }
   renderIslands();
 
-  /* ▼ 橋の生成ロジック（元コードそのまま） */
+  /* ▼ 橋生成ロジック（元コード） */
   function getNeighborPairs() {
     const pairs = [];
     const dirs = [
@@ -239,7 +238,7 @@
     document.querySelectorAll(".bridge").forEach(b => b.remove());
   }
 
-  /* ▼ グラフ構築（元コード） */
+  /* ▼ グラフ構築 */
   let graph = Array.from({length:9},()=>[]);
   function rebuildGraph() {
     graph = Array.from({length:9},()=>[]);
@@ -286,7 +285,7 @@
     }
   }
 
-  /* ▼ BFS（元コード） */
+  /* ▼ BFS */
   function bfs(start){
     let dist=Array(9).fill(Infinity);
     dist[start]=0;
@@ -361,7 +360,7 @@
 
   updateMessage();
 
-  /* ▼ クリック処理（元コード） */
+  /* ▼ クリック処理 */
   game.addEventListener("click", e=>{
     const rect = game.getBoundingClientRect();
     const x = e.clientX - rect.left;
