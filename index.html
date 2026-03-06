@@ -3,34 +3,48 @@
 <head>
 <meta charset="UTF-8">
 <title>鬼ごっこ</title>
+
 <style>
+  /* ▼ ゲーム枠：レスポンシブ化（最大600px） */
   #game {
-    width: 600px;
-    height: 600px;
+    width: 90vw;
+    height: 90vw;
+    max-width: 600px;
+    max-height: 600px;
     background: #eef;
     position: relative;
     border: 2px solid #333;
+    margin: 0 auto;
   }
+
+  /* ▼ 島（自動スケール） */
   .island {
-    width: 60px;
-    height: 60px;
+    position: absolute;
     background: #fff;
     border: 2px solid #333;
     border-radius: 50%;
-    position: absolute;
+    width: 10vw;
+    height: 10vw;
+    max-width: 60px;
+    max-height: 60px;
   }
+
+  /* ▼ キャラ（自動スケール） */
   .player, .oni, .house {
-    width: 70px;
-    height: 70px;
     position: absolute;
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
+    width: 12vw;
+    height: 12vw;
+    max-width: 70px;
+    max-height: 70px;
   }
   .player { background-image: url("Child.png"); }
-  .oni { background-image: url("oni.png"); }
-  .house { background-image: url("ie.png"); display:none; pointer-events:none; }
+  .oni    { background-image: url("oni.png"); }
+  .house  { background-image: url("ie.png"); display:none; pointer-events:none; }
 
+  /* ▼ 橋 */
   .bridge {
     position: absolute;
     background: #444;
@@ -39,6 +53,30 @@
     pointer-events: none;
   }
 
+  /* ▼ ボタンを大きく押しやすく */
+  .game-btn {
+    font-size: 20px;
+    padding: 12px 24px;
+    margin: 10px;
+    border-radius: 8px;
+    border: 2px solid #333;
+    background: #fff;
+    cursor: pointer;
+  }
+  .game-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  /* ▼ スマホではさらに押しやすく */
+  @media (max-width: 600px) {
+    .game-btn {
+      font-size: 24px;
+      padding: 16px 28px;
+    }
+  }
+
+  /* ▼ 点滅アニメ */
   @keyframes blink {
     0% { opacity: 1; }
     50% { opacity: 0; }
@@ -59,34 +97,58 @@
   子どものスタート位置を選んでください
 </div>
 
+<!-- ▼ ボタン（大きくした） -->
+<button id="startBtn" class="game-btn" disabled>ゲーム開始</button>
+<button id="resetBtn" class="game-btn">リセット</button>
+
 <div id="game"></div>
 
 <script>
   const game = document.getElementById("game");
 
-  const startBtn = document.createElement("button");
-  startBtn.textContent = "ゲーム開始";
-  startBtn.disabled = true;
-  document.body.insertBefore(startBtn, game);
-
-  const resetBtn = document.createElement("button");
-  resetBtn.textContent = "リセット";
-  document.body.insertBefore(resetBtn, game);
-
-  const islandPos = [
-    {x:100,y:100},{x:300,y:100},{x:500,y:100},
-    {x:100,y:300},{x:300,y:300},{x:500,y:300},
-    {x:100,y:500},{x:300,y:500},{x:500,y:500}
+  /* ▼ 割合ベースの島座標（3×3） */
+  const islandRatio = [
+    {x:1/6, y:1/6}, {x:3/6, y:1/6}, {x:5/6, y:1/6},
+    {x:1/6, y:3/6}, {x:3/6, y:3/6}, {x:5/6, y:3/6},
+    {x:1/6, y:5/6}, {x:3/6, y:5/6}, {x:5/6, y:5/6}
   ];
 
+  let islandPos = [];
+  let islandSize = 0;
+
+  /* ▼ 画面サイズに応じて島の位置を計算 */
+  function computeIslandPos() {
+    const rect = game.getBoundingClientRect();
+    const w = rect.width;
+
+    islandSize = w * 0.10; // 島の直径（10%）
+
+    islandPos = islandRatio.map(r => ({
+      x: r.x * w - islandSize / 2,
+      y: r.y * w - islandSize / 2
+    }));
+  }
+
+  computeIslandPos();
+
+  /* ▼ 島を生成 */
   for (let i=0;i<9;i++){
     const d=document.createElement("div");
     d.className="island";
-    d.style.left=islandPos[i].x+"px";
-    d.style.top=islandPos[i].y+"px";
     game.appendChild(d);
   }
 
+  /* ▼ 島の位置を反映 */
+  function renderIslands() {
+    const islands = document.querySelectorAll(".island");
+    islands.forEach((d,i)=>{
+      d.style.left = islandPos[i].x + "px";
+      d.style.top  = islandPos[i].y + "px";
+    });
+  }
+  renderIslands();
+
+  /* ▼ 橋の生成ロジック（元コードそのまま） */
   function getNeighborPairs() {
     const pairs = [];
     const dirs = [
@@ -164,8 +226,8 @@
 
       const br=document.createElement("div");
       br.className="bridge";
-      br.style.left=p1.x+30+"px";
-      br.style.top=p1.y+30+"px";
+      br.style.left=p1.x + islandSize/2 + "px";
+      br.style.top =p1.y + islandSize/2 + "px";
       br.style.width=len+"px";
       br.style.transform=`rotate(${Math.atan2(dy,dx)}rad)`;
       game.appendChild(br);
@@ -177,6 +239,7 @@
     document.querySelectorAll(".bridge").forEach(b => b.remove());
   }
 
+  /* ▼ グラフ構築（元コード） */
   let graph = Array.from({length:9},()=>[]);
   function rebuildGraph() {
     graph = Array.from({length:9},()=>[]);
@@ -187,31 +250,7 @@
   }
   rebuildGraph();
 
-  let playerNode = null;
-  let oniNode = null;
-  let houseNode = null;
-  let turn = 0;
-
-  let gameState = "setPlayer";
-
-  function updateMessage() {
-    const msg = document.getElementById("message");
-
-    if (gameState === "setPlayer") {
-      msg.textContent = "子どものスタート位置を選んでください";
-    } else if (gameState === "setOni") {
-      msg.textContent = "次に鬼のスタート位置を選んでください";
-    } else if (gameState === "ready") {
-      msg.textContent = "ゲーム開始ボタンを押してください";
-    } else if (gameState === "playStep1") {
-      msg.textContent = "子ども 1歩目：移動先の島を選んでください";
-    } else if (gameState === "playStep2") {
-      msg.textContent = "子ども 2歩目：移動先の島を選んでください";
-    } else if (gameState === "oniTurn") {
-      msg.textContent = "鬼が移動中…";
-    }
-  }
-
+  /* ▼ キャラ生成 */
   const player = document.createElement("div");
   player.className="player";
   player.style.display = "none";
@@ -226,17 +265,28 @@
   house.className="house";
   game.appendChild(house);
 
+  let playerNode = null;
+  let oniNode = null;
+  let houseNode = null;
+  let turn = 0;
+  let gameState = "setPlayer";
+
   function renderCharacters(){
     if(playerNode !== null){
-      player.style.left = islandPos[playerNode].x+"px";
-      player.style.top  = islandPos[playerNode].y+"px";
+      player.style.left = islandPos[playerNode].x + "px";
+      player.style.top  = islandPos[playerNode].y + "px";
     }
     if(oniNode !== null){
-      oni.style.left    = islandPos[oniNode].x+"px";
-      oni.style.top     = islandPos[oniNode].y+"px";
+      oni.style.left    = islandPos[oniNode].x + "px";
+      oni.style.top     = islandPos[oniNode].y + "px";
+    }
+    if(houseNode !== null){
+      house.style.left  = islandPos[houseNode].x + "px";
+      house.style.top   = islandPos[houseNode].y + "px";
     }
   }
 
+  /* ▼ BFS（元コード） */
   function bfs(start){
     let dist=Array(9).fill(Infinity);
     dist[start]=0;
@@ -281,9 +331,8 @@
 
   function spawnHouse() {
     houseNode = Math.floor(Math.random() * 9);
-    house.style.left = islandPos[houseNode].x + "px";
-    house.style.top  = islandPos[houseNode].y + "px";
     house.style.display = "block";
+    renderCharacters();
   }
 
   function checkHouse() {
@@ -298,15 +347,30 @@
     return false;
   }
 
+  /* ▼ メッセージ更新 */
+  function updateMessage() {
+    const msg = document.getElementById("message");
+
+    if (gameState === "setPlayer") msg.textContent = "子どものスタート位置を選んでください";
+    else if (gameState === "setOni") msg.textContent = "次に鬼のスタート位置を選んでください";
+    else if (gameState === "ready") msg.textContent = "ゲーム開始ボタンを押してください";
+    else if (gameState === "playStep1") msg.textContent = "子ども 1歩目：移動先の島を選んでください";
+    else if (gameState === "playStep2") msg.textContent = "子ども 2歩目：移動先の島を選んでください";
+    else if (gameState === "oniTurn") msg.textContent = "鬼が移動中…";
+  }
+
+  updateMessage();
+
+  /* ▼ クリック処理（元コード） */
   game.addEventListener("click", e=>{
     const rect = game.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
     for(let i=0;i<9;i++){
-      let dx = x - (islandPos[i].x+30);
-      let dy = y - (islandPos[i].y+30);
-      if(Math.hypot(dx,dy) < 30){
+      let dx = x - (islandPos[i].x + islandSize/2);
+      let dy = y - (islandPos[i].y + islandSize/2);
+      if(Math.hypot(dx,dy) < islandSize/2){
 
         if(gameState === "setPlayer"){
           playerNode = i;
@@ -322,7 +386,7 @@
           oni.style.display = "block";
           renderCharacters();
           gameState = "ready";
-          startBtn.disabled = false;
+          document.getElementById("startBtn").disabled = false;
           updateMessage();
           return;
         }
@@ -345,26 +409,16 @@
             renderCharacters();
 
             if (checkHouse()) return;
+            if(checkCatch()){ caughtAction(); return; }
 
-            if(checkCatch()){
-              caughtAction();
-              return;
-            }
-
-            if (turn === 4 && houseNode === null) {
-              spawnHouse();
-            }
+            if (turn === 4 && houseNode === null) spawnHouse();
 
             gameState = "oniTurn";
             updateMessage();
             moveOni();
             renderCharacters();
 
-            if(checkCatch()){
-              caughtAction();
-              return;
-            }
-
+            if(checkCatch()){ caughtAction(); return; }
             if (checkHouse()) return;
 
             gameState = "playStep1";
@@ -376,20 +430,22 @@
     }
   });
 
-  startBtn.addEventListener("click", ()=>{
+  /* ▼ ゲーム開始 */
+  document.getElementById("startBtn").addEventListener("click", ()=>{
     if(gameState === "ready"){
       gameState = "playStep1";
       updateMessage();
     }
   });
 
-  resetBtn.addEventListener("click", ()=>{
+  /* ▼ リセット */
+  document.getElementById("resetBtn").addEventListener("click", ()=>{
     playerNode = null;
     oniNode = null;
     houseNode = null;
     turn = 0;
     gameState = "setPlayer";
-    startBtn.disabled = true;
+    document.getElementById("startBtn").disabled = true;
 
     player.style.display = "none";
     oni.style.display = "none";
@@ -403,6 +459,15 @@
 
     renderCharacters();
     updateMessage();
+  });
+
+  /* ▼ 画面サイズ変更時にすべて再描画 */
+  window.addEventListener("resize", () => {
+    computeIslandPos();
+    renderIslands();
+    renderCharacters();
+    clearBridges();
+    drawBridges();
   });
 </script>
 </body>
