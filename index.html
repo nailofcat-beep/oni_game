@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>鬼ごっこ</title>
+<style>
+  #game {
+    width: 600px;
+    height: 600px;
+    background: #eef;
+    position: relative;
+    border: 2px solid #333;
+  }
+  .island {
+    width: 60px;
+    height: 60px;
+    background: #fff;
+    border: 2px solid #333;
+    border-radius: 50%;
+    position: absolute;
+  }
+  .player, .oni, .house {
+    width: 70px;
+    height: 70px;
+    position: absolute;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+  .player { background-image: url("Child.png"); }
+  .oni { background-image: url("oni.png"); }
+  .house { background-image: url("ie.png"); display:none; pointer-events:none; }
+
+  .bridge {
+    position: absolute;
+    background: #444;
+    height: 4px;
+    transform-origin: left center;
+    pointer-events: none;
+  }
+
+  @keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+  .blink {
+    animation: blink 0.4s infinite;
+  }
+</style>
+</head>
+<body>
+
+<h2>鬼ごっこゲーム</h2>
+<p style="font-size:18px; font-weight:bold;">子供は2マス、鬼は1マス</p>
+<p style="font-size:18px; font-weight:bold;">4ターン行動すると家（ゴール）が出現します</p>
+
+<div id="message" style="font-size:20px; font-weight:bold; margin:10px 0; color:red;">
+  子どものスタート位置を選んでください
+</div>
+
+<div id="game"></div>
+
+<script>
+  const game = document.getElementById("game");
+
+  const startBtn = document.createElement("button");
+  startBtn.textContent = "ゲーム開始";
+  startBtn.disabled = true;
+  document.body.insertBefore(startBtn, game);
+
+  const resetBtn = document.createElement("button");
+  resetBtn.textContent = "リセット";
+  document.body.insertBefore(resetBtn, game);
+
+  const islandPos = [
+    {x:100,y:100},{x:300,y:100},{x:500,y:100},
+    {x:100,y:300},{x:300,y:300},{x:500,y:300},
+    {x:100,y:500},{x:300,y:500},{x:500,y:500}
+  ];
+
+  for (let i=0;i<9;i++){
+    const d=document.createElement("div");
+    d.className="island";
+    d.style.left=islandPos[i].x+"px";
+    d.style.top=islandPos[i].y+"px";
+    game.appendChild(d);
+  }
+
+  function getNeighborPairs() {
+    const pairs = [];
+    const dirs = [
+      {dx: 0, dy:-1}, {dx: 0, dy: 1},
+      {dx:-1, dy: 0}, {dx: 1, dy: 0},
+      {dx:-1, dy:-1}, {dx: 1, dy:-1},
+      {dx:-1, dy: 1}, {dx: 1, dy: 1}
+    ];
+
+    for (let i = 0; i < 9; i++) {
+      const x = i % 3;
+      const y = Math.floor(i / 3);
+
+      dirs.forEach(d => {
+        const nx = x + d.dx;
+        const ny = y + d.dy;
+
+        if (nx >= 0 && nx < 3 && ny >= 0 && ny < 3) {
+          const j = ny * 3 + nx;
+          if (i < j) pairs.push({a: i, b: j});
+        }
+      });
+    }
+    return pairs;
+  }
+
+  function segmentsCross(p1, p2, p3, p4) {
+    function ccw(a, b, c) {
+      return (c.y - a.y) * (b.x - a.x) > (b.y - a.y) * (c.x - a.x);
+    }
+    return (ccw(p1, p3, p4) !== ccw(p2, p3, p4)) &&
+           (ccw(p1, p2, p3) !== ccw(p1, p2, p4));
+  }
+
+  function isCrossing(newEdge, edges) {
+    const p1 = islandPos[newEdge.a];
+    const p2 = islandPos[newEdge.b];
+
+    for (let e of edges) {
+      const p3 = islandPos[e.a];
+      const p4 = islandPos[e.b];
+
+      if (newEdge.a === e.a || newEdge.a === e.b ||
+          newEdge.b === e.a || newEdge.b === e.b) continue;
+
+      if (segmentsCross(p1, p2, p3, p4)) return true;
+    }
+    return false;
+  }
+
+  let edges = [];
+  function generateEdges() {
+    edges = [];
+    const candidates = getNeighborPairs();
+
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const r = Math.floor(Math.random() * (i + 1));
+      [candidates[i], candidates[r]] = [candidates[r], candidates[i]];
+    }
+
+    for (let c of candidates) {
+      if (edges.length >= 13) break;
+      if (!isCrossing(c, edges)) edges.push(c);
+    }
+  }
+  generateEdges();
+
+  function drawBridges(){
+    edges.forEach(e=>{
+      const p1=islandPos[e.a];
+      const p2=islandPos[e.b];
+      const dx=p2.x-p1.x;
+      const dy=p2.y-p1.y;
+      const len=Math.hypot(dx,dy);
+
+      const br=document.createElement("div");
+      br.className="bridge";
+      br.style.left=p1.x+30+"px";
+      br.style.top=p1.y+30+"px";
+      br.style.width=len+"px";
+      br.style.transform=`rotate(${Math.atan2(dy,dx)}rad)`;
+      game.appendChild(br);
+    });
+  }
+  drawBridges();
+
+  function clearBridges() {
+    document.querySelectorAll(".bridge").forEach(b => b.remove());
+  }
+
+  let graph = Array.from({length:9},()=>[]);
+  function rebuildGraph() {
+    graph = Array.from({length:9},()=>[]);
+    edges.forEach(e=>{
+      graph[e.a].push(e.b);
+      graph[e.b].push(e.a);
+    });
+  }
+  rebuildGraph();
+
+  let playerNode = null;
+  let oniNode = null;
+  let houseNode = null;
+  let turn = 0;
+
+  let gameState = "setPlayer";
+
+  function updateMessage() {
+    const msg = document.getElementById("message");
+
+    if (gameState === "setPlayer") {
+      msg.textContent = "子どものスタート位置を選んでください";
+    } else if (gameState === "setOni") {
+      msg.textContent = "次に鬼のスタート位置を選んでください";
+    } else if (gameState === "ready") {
+      msg.textContent = "ゲーム開始ボタンを押してください";
+    } else if (gameState === "playStep1") {
+      msg.textContent = "子ども 1歩目：移動先の島を選んでください";
+    } else if (gameState === "playStep2") {
+      msg.textContent = "子ども 2歩目：移動先の島を選んでください";
+    } else if (gameState === "oniTurn") {
+      msg.textContent = "鬼が移動中…";
+    }
+  }
+
+  const player = document.createElement("div");
+  player.className="player";
+  player.style.display = "none";
+  game.appendChild(player);
+
+  const oni = document.createElement("div");
+  oni.className="oni";
+  oni.style.display = "none";
+  game.appendChild(oni);
+
+  const house = document.createElement("div");
+  house.className="house";
+  game.appendChild(house);
+
+  function renderCharacters(){
+    if(playerNode !== null){
+      player.style.left = islandPos[playerNode].x+"px";
+      player.style.top  = islandPos[playerNode].y+"px";
+    }
+    if(oniNode !== null){
+      oni.style.left    = islandPos[oniNode].x+"px";
+      oni.style.top     = islandPos[oniNode].y+"px";
+    }
+  }
+
+  function bfs(start){
+    let dist=Array(9).fill(Infinity);
+    dist[start]=0;
+    let q=[start];
+    while(q.length){
+      let v=q.shift();
+      for(let nx of graph[v]){
+        if(dist[nx]>dist[v]+1){
+          dist[nx]=dist[v]+1;
+          q.push(nx);
+        }
+      }
+    }
+    return dist;
+  }
+
+  function moveOni(){
+    let dist = bfs(playerNode);
+    let next = oniNode;
+    for(let nx of graph[oniNode]){
+      if(dist[nx] < dist[next]) next = nx;
+    }
+    oniNode = next;
+  }
+
+  function checkCatch(){
+    return playerNode === oniNode;
+  }
+
+  function caughtAction() {
+    playerNode = oniNode;
+    renderCharacters();
+
+    player.classList.add("blink");
+    oni.classList.add("blink");
+
+    setTimeout(()=>{
+      alert("捕まった！ ターン数: " + turn);
+      location.reload();
+    }, 1200);
+  }
+
+  function spawnHouse() {
+    houseNode = Math.floor(Math.random() * 9);
+    house.style.left = islandPos[houseNode].x + "px";
+    house.style.top  = islandPos[houseNode].y + "px";
+    house.style.display = "block";
+  }
+
+  function checkHouse() {
+    if (houseNode !== null && playerNode === houseNode) {
+      house.classList.add("blink");
+      setTimeout(()=>{
+        alert("クリア！ 家に到着しました！");
+        location.reload();
+      }, 1200);
+      return true;
+    }
+    return false;
+  }
+
+  game.addEventListener("click", e=>{
+    const rect = game.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    for(let i=0;i<9;i++){
+      let dx = x - (islandPos[i].x+30);
+      let dy = y - (islandPos[i].y+30);
+      if(Math.hypot(dx,dy) < 30){
+
+        if(gameState === "setPlayer"){
+          playerNode = i;
+          player.style.display = "block";
+          renderCharacters();
+          gameState = "setOni";
+          updateMessage();
+          return;
+        }
+
+        if(gameState === "setOni"){
+          oniNode = i;
+          oni.style.display = "block";
+          renderCharacters();
+          gameState = "ready";
+          startBtn.disabled = false;
+          updateMessage();
+          return;
+        }
+
+        if(gameState === "playStep1"){
+          if(graph[playerNode].includes(i)){
+            playerNode = i;
+            renderCharacters();
+            if (checkHouse()) return;
+            gameState = "playStep2";
+            updateMessage();
+          }
+          return;
+        }
+
+        if(gameState === "playStep2"){
+          if(graph[playerNode].includes(i)){
+            playerNode = i;
+            turn++;
+            renderCharacters();
+
+            if (checkHouse()) return;
+
+            if(checkCatch()){
+              caughtAction();
+              return;
+            }
+
+            if (turn === 4 && houseNode === null) {
+              spawnHouse();
+            }
+
+            gameState = "oniTurn";
+            updateMessage();
+            moveOni();
+            renderCharacters();
+
+            if(checkCatch()){
+              caughtAction();
+              return;
+            }
+
+            if (checkHouse()) return;
+
+            gameState = "playStep1";
+            updateMessage();
+          }
+          return;
+        }
+      }
+    }
+  });
+
+  startBtn.addEventListener("click", ()=>{
+    if(gameState === "ready"){
+      gameState = "playStep1";
+      updateMessage();
+    }
+  });
+
+  resetBtn.addEventListener("click", ()=>{
+    playerNode = null;
+    oniNode = null;
+    houseNode = null;
+    turn = 0;
+    gameState = "setPlayer";
+    startBtn.disabled = true;
+
+    player.style.display = "none";
+    oni.style.display = "none";
+    house.style.display = "none";
+    house.classList.remove("blink");
+
+    clearBridges();
+    generateEdges();
+    drawBridges();
+    rebuildGraph();
+
+    renderCharacters();
+    updateMessage();
+  });
+</script>
+</body>
+</html>
