@@ -16,16 +16,11 @@
     margin: 0 auto;
   }
 
-  /* ▼ 島：16%に拡大 */
   .island {
     position: absolute;
     background: #fff;
     border: 2px solid #333;
     border-radius: 50%;
-    width: 16vw;
-    height: 16vw;
-    max-width: 84px;
-    max-height: 84px;
   }
 
   .player, .oni, .house {
@@ -108,26 +103,36 @@
   let islandPos = [];
   let islandSize = 0;
 
-  /* ▼ 島サイズ 14% に変更 */
+  /* ▼ 島サイズを JS で完全管理（堅牢版） */
   function computeIslandPos() {
     const rect = game.getBoundingClientRect();
     const w = rect.width;
 
-    islandSize = w * 0.14;   // ★ ここを変更
+    islandSize = w * 0.16;
 
     islandPos = islandRatio.map(r => ({
       x: r.x * w - islandSize / 2,
       y: r.y * w - islandSize / 2
     }));
+
+    const islands = document.querySelectorAll(".island");
+    if (islands.length === 0) return;
+
+    islands.forEach(d => {
+      d.style.width = islandSize + "px";
+      d.style.height = islandSize + "px";
+    });
   }
 
-  computeIslandPos();
-
+  /* ▼ まず島 DOM を作る */
   for (let i=0;i<9;i++){
     const d=document.createElement("div");
     d.className="island";
     game.appendChild(d);
   }
+
+  /* ▼ 島 DOM が存在してからサイズ計算 */
+  computeIslandPos();
 
   function renderIslands() {
     const islands = document.querySelectorAll(".island");
@@ -137,6 +142,8 @@
     });
   }
   renderIslands();
+
+  /* --- ゲームロジック --- */
 
   function getNeighborPairs() {
     const pairs = [];
@@ -258,18 +265,26 @@
   let turn = 0;
   let gameState = "setPlayer";
 
+  /* ▼ キャラを島の中心に正確に配置する（完全修正版） */
   function renderCharacters(){
+    const pw = player.offsetWidth;
+    const ph = player.offsetHeight;
+    const ow = oni.offsetWidth;
+    const oh = oni.offsetHeight;
+    const hw = house.offsetWidth;
+    const hh = house.offsetHeight;
+
     if(playerNode !== null){
-      player.style.left = islandPos[playerNode].x + "px";
-      player.style.top  = islandPos[playerNode].y + "px";
+      player.style.left = (islandPos[playerNode].x + islandSize/2 - pw/2) + "px";
+      player.style.top  = (islandPos[playerNode].y + islandSize/2 - ph/2) + "px";
     }
     if(oniNode !== null){
-      oni.style.left    = islandPos[oniNode].x + "px";
-      oni.style.top     = islandPos[oniNode].y + "px";
+      oni.style.left = (islandPos[oniNode].x + islandSize/2 - ow/2) + "px";
+      oni.style.top  = (islandPos[oniNode].y + islandSize/2 - oh/2) + "px";
     }
     if(houseNode !== null){
-      house.style.left  = islandPos[houseNode].x + "px";
-      house.style.top   = islandPos[houseNode].y + "px";
+      house.style.left = (islandPos[houseNode].x + islandSize/2 - hw/2) + "px";
+      house.style.top  = (islandPos[houseNode].y + islandSize/2 - hh/2) + "px";
     }
   }
 
