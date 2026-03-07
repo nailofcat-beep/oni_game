@@ -97,6 +97,29 @@
 <script>
   const game = document.getElementById("game");
 
+  /* ★ レベル管理 */
+  let oniLevel = 1;     // 1〜4
+  let childLevel = 1;   // 1〜5
+
+  /* ★ 鬼の画像更新 */
+  function updateOniImage() {
+    if (oniLevel === 1) oni.style.backgroundImage = 'url("oni.png")';
+    if (oniLevel === 2) oni.style.backgroundImage = 'url("oni2.png")';
+    if (oniLevel === 3) oni.style.backgroundImage = 'url("oni3.png")';
+    if (oniLevel === 4) oni.style.backgroundImage = 'url("oni4.png")';
+  }
+
+  /* ★ 子どもの画像更新 */
+  function updateChildImage() {
+    if (childLevel === 1) player.style.backgroundImage = 'url("Child.png")';
+    if (childLevel === 2) player.style.backgroundImage = 'url("Child2.png")';
+    if (childLevel === 3) player.style.backgroundImage = 'url("Child3.png")';
+    if (childLevel === 4) player.style.backgroundImage = 'url("Child4.png")';
+    if (childLevel === 5) player.style.backgroundImage = 'url("Child5.png")';
+  }
+
+  /* --- 島生成 --- */
+
   const islandRatio = [
     {x:1/6, y:1/6}, {x:3/6, y:1/6}, {x:5/6, y:1/6},
     {x:1/6, y:3/6}, {x:3/6, y:3/6}, {x:5/6, y:3/6},
@@ -142,6 +165,8 @@
     });
   }
   renderIslands();
+
+  /* --- 橋生成 --- */
 
   function getNeighborPairs() {
     const pairs = [];
@@ -195,7 +220,6 @@
 
   let edges = [];
 
-  /* ★ 修正版：橋を 12 か 13 本ランダム生成し、中央ノードは最大4本 */
   function generateEdges() {
     edges = [];
     const candidates = getNeighborPairs();
@@ -210,7 +234,6 @@
     for (let c of candidates) {
       if (edges.length >= maxEdges) break;
 
-      // ★ 中央ノード（4）に接続する橋は 4 本まで
       const involvesCenter = (c.a === 4 || c.b === 4);
       if (involvesCenter) {
         const centerCount = edges.filter(e => e.a === 4 || e.b === 4).length;
@@ -257,6 +280,8 @@
   }
   rebuildGraph();
 
+  /* --- キャラ生成 --- */
+
   const player = document.createElement("div");
   player.className="player";
   player.style.display = "none";
@@ -299,6 +324,8 @@
     }
   }
 
+  /* --- BFS（鬼の追跡） --- */
+
   function bfs(start){
     let dist=Array(9).fill(Infinity);
     dist[start]=0;
@@ -328,6 +355,8 @@
     return playerNode === oniNode;
   }
 
+  /* --- 捕まった --- */
+
   function caughtAction() {
     playerNode = oniNode;
     renderCharacters();
@@ -337,9 +366,12 @@
 
     setTimeout(()=>{
       alert("捕まった！ ターン数: " + turn);
-      location.reload();
+      gameState = "caughtEnd";
+      document.getElementById("resetBtn").click();
     }, 1200);
   }
+
+  /* --- 家 --- */
 
   function spawnHouse() {
     houseNode = Math.floor(Math.random() * 9);
@@ -349,15 +381,19 @@
 
   function checkHouse() {
     if (houseNode !== null && playerNode === houseNode) {
+
       house.classList.add("blink");
       setTimeout(()=>{
         alert("クリア！ 家に到着しました！");
-        location.reload();
+        gameState = "clearEnd";
+        document.getElementById("resetBtn").click();
       }, 1200);
       return true;
     }
     return false;
   }
+
+  /* --- メッセージ更新 --- */
 
   function updateMessage() {
     const msg = document.getElementById("message");
@@ -372,6 +408,8 @@
 
   updateMessage();
 
+  /* --- クリック処理 --- */
+
   game.addEventListener("click", e=>{
     const rect = game.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -385,6 +423,7 @@
         if(gameState === "setPlayer"){
           playerNode = i;
           player.style.display = "block";
+          updateChildImage();
           renderCharacters();
           gameState = "setOni";
           updateMessage();
@@ -394,6 +433,7 @@
         if(gameState === "setOni"){
           oniNode = i;
           oni.style.display = "block";
+          updateOniImage();
           renderCharacters();
           gameState = "ready";
           document.getElementById("startBtn").disabled = false;
@@ -440,6 +480,8 @@
     }
   });
 
+  /* --- ゲーム開始 --- */
+
   document.getElementById("startBtn").addEventListener("click", ()=>{
     if(gameState === "ready"){
       gameState = "playStep1";
@@ -447,7 +489,23 @@
     }
   });
 
+  /* --- リセット（レベルアップ含む） --- */
+
   document.getElementById("resetBtn").addEventListener("click", ()=>{
+
+    if (gameState === "caughtEnd") {
+      childLevel++;
+      if (childLevel > 5) childLevel = 1;
+    }
+
+    if (gameState === "clearEnd") {
+      oniLevel++;
+      if (oniLevel > 4) oniLevel = 1;
+    }
+
+    updateChildImage();
+    updateOniImage();
+
     playerNode = null;
     oniNode = null;
     houseNode = null;
@@ -458,6 +516,10 @@
     player.style.display = "none";
     oni.style.display = "none";
     house.style.display = "none";
+
+    /* ★ 点滅解除（今回の修正ポイント） */
+    player.classList.remove("blink");
+    oni.classList.remove("blink");
     house.classList.remove("blink");
 
     clearBridges();
@@ -468,14 +530,7 @@
     renderCharacters();
     updateMessage();
   });
-
-  window.addEventListener("resize", () => {
-    computeIslandPos();
-    renderIslands();
-    renderCharacters();
-    clearBridges();
-    drawBridges();
-  });
 </script>
+
 </body>
 </html>
