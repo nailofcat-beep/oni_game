@@ -21,6 +21,7 @@
     background: #fff;
     border: 2px solid #333;
     border-radius: 50%;
+    z-index: 1;
   }
 
   .player, .oni, .house {
@@ -32,6 +33,7 @@
     height: 12vw;
     max-width: 70px;
     max-height: 70px;
+    z-index: 10;
   }
   .player { background-image: url("Child.png"); }
   .oni    { background-image: url("oni.png"); }
@@ -43,6 +45,7 @@
     height: 4px;
     transform-origin: left center;
     pointer-events: none;
+    z-index: 5;
   }
 
   .game-btn {
@@ -103,7 +106,6 @@
   let islandPos = [];
   let islandSize = 0;
 
-  /* ▼ 島サイズを JS で完全管理（堅牢版） */
   function computeIslandPos() {
     const rect = game.getBoundingClientRect();
     const w = rect.width;
@@ -124,14 +126,12 @@
     });
   }
 
-  /* ▼ まず島 DOM を作る */
   for (let i=0;i<9;i++){
     const d=document.createElement("div");
     d.className="island";
     game.appendChild(d);
   }
 
-  /* ▼ 島 DOM が存在してからサイズ計算 */
   computeIslandPos();
 
   function renderIslands() {
@@ -142,8 +142,6 @@
     });
   }
   renderIslands();
-
-  /* --- ゲームロジック --- */
 
   function getNeighborPairs() {
     const pairs = [];
@@ -196,9 +194,13 @@
   }
 
   let edges = [];
+
+  /* ★ 修正版：橋を 12 か 13 本ランダム生成し、中央ノードは最大4本 */
   function generateEdges() {
     edges = [];
     const candidates = getNeighborPairs();
+
+    const maxEdges = Math.random() < 0.5 ? 12 : 13;
 
     for (let i = candidates.length - 1; i > 0; i--) {
       const r = Math.floor(Math.random() * (i + 1));
@@ -206,8 +208,18 @@
     }
 
     for (let c of candidates) {
-      if (edges.length >= 13) break;
-      if (!isCrossing(c, edges)) edges.push(c);
+      if (edges.length >= maxEdges) break;
+
+      // ★ 中央ノード（4）に接続する橋は 4 本まで
+      const involvesCenter = (c.a === 4 || c.b === 4);
+      if (involvesCenter) {
+        const centerCount = edges.filter(e => e.a === 4 || e.b === 4).length;
+        if (centerCount >= 4) continue;
+      }
+
+      if (!isCrossing(c, edges)) {
+        edges.push(c);
+      }
     }
   }
   generateEdges();
@@ -265,7 +277,6 @@
   let turn = 0;
   let gameState = "setPlayer";
 
-  /* ▼ キャラを島の中心に正確に配置する（完全修正版） */
   function renderCharacters(){
     const pw = player.offsetWidth;
     const ph = player.offsetHeight;
